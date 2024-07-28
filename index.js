@@ -39,7 +39,7 @@ async function get_user_profile(userName) {
   const imageUrl = imgElement?.getAttribute("src");
   const title = root.querySelector("title").innerText;
 
-  let username,name;
+  let username, name;
   const match = title.match(/^(.+?) \((.+?)\)/);
   if (match) {
     username = match[1];
@@ -52,8 +52,8 @@ async function get_user_profile(userName) {
   }
 
   const metaDescription = root.querySelector('meta[name="description"]');
-  const bio = metaDescription ? metaDescription.getAttribute('content') : null;
-  return {name,username,imageUrl,bio};
+  const bio = metaDescription ? metaDescription.getAttribute("content") : null;
+  return { name, username, imageUrl, bio };
 }
 
 async function get_languages(userName, repo) {
@@ -132,40 +132,9 @@ fastify.get("/:userName", async function handler(req, rep) {
     const existing_user = await User.findOne({ userName: userName });
     if (existing_user) {
       console.log("User found in database");
-      let langHTML = `
-        <div class="skills" style="margin-bottom: 1rem;">`;
-      for (let [key, value] of existing_user.languages) {
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        langHTML += `
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: ${color};"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">${key}</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">${value}%</span>
-            </div>
-            `;
-      }
-      langHTML += `
-        </div>`;
 
-      const htmlContent = `
-      <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
-    <div class="img" style="border-radius: 50%;">
-        <img src="${existing_user.profileImageUrl}" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
-    </div>
-    <div class="infos" style="margin-left: 1.5rem;">
-        <div class="name" style="margin-bottom: 1rem;">
-            <h2 style="font-size: 1.3rem; color: #E0E0E0;">${existing_user.name}</h2>
-            <h4 style="font-size: .8rem; color: #BBBBBB;">@${userName}</h4>
-        </div>
-        <p class="text" style="font-size: .9rem; margin-bottom: 1rem; color: #E0E0E0;">
-            ${existing_user.bio}
-        </p>
-        ${langHTML}
-    </div>
-</div>
-    `;
-      const buffer = Buffer.from(htmlContent, "utf-8");
-      return rep.type("text/html").send(buffer);
+      const html_buff = generate_html_buffer(existing_user);
+      return rep.type("text/html").send(html_buff);
     }
     console.log("User Not found in database");
     const user = await main(userName);
@@ -179,7 +148,8 @@ fastify.get("/:userName", async function handler(req, rep) {
     });
     console.log(newUser);
     await newUser.save();
-    return rep.send();
+    const html_buff = generate_html_buffer(newUser);
+    return rep.type("text/html").send(html_buff);
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });
@@ -197,3 +167,48 @@ fastify.listen({ port: 3000 }, (err) => {
     .then(() => console.log("Connected to MongoDB!"))
     .catch((err) => console.error("Could not connect to MongoDB..."));
 });
+
+function generate_html_buffer(user) {
+  let langHTML = `
+        <div class="skills" style="margin-bottom: 1rem;">`;
+  for (let [key, value] of user.languages) {
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    langHTML += `
+            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: ${color};"></span>
+                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">${key}</span>
+                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">${value}%</span>
+            </div>
+            `;
+  }
+  langHTML += `
+        </div>`;
+
+  const htmlContent = `
+  <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
+  <div style="display: flex; align-items: center;">
+      <div class="img" style="border-radius: 50%; margin-right: 1rem;">
+          <img src="https://avatars.githubusercontent.com/u/107696391?v=4" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
+      </div>
+      <div>
+          <div class="name" style="margin-bottom: 1rem;">
+              <h2 style="font-size: 1.3rem; color: #E0E0E0;">${user.name}</h2>
+              <h4 style="font-size: .8rem; color: #BBBBBB;">@${user.userName}</h4>
+          </div>
+          <p class="text" style="font-size: .9rem; margin-bottom: 1rem; color: #E0E0E0;">
+              ${user.bio}
+          </p>
+      </div>
+  </div>
+  
+  <div class="infos" style="margin-left: 1.5rem;">
+      <div class="skills" style="margin-bottom: 1rem; margin-top: 1rem;">
+          ${langHTML}
+      </div>
+  </div>
+</div>
+    `;
+
+  const buffer = Buffer.from(htmlContent, "utf-8");
+  return buffer;
+}

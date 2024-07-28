@@ -49,9 +49,22 @@ async function get_languages(userName,repo) {
     return langs;
 }
 
+async function get_user(userName) {
+    const resp=await axios.get(`https://github.com/${userName}`);
+    if(resp.status!==200){
+        console.log("User not found");
+        return;
+    }
+    const root=parse(resp.data);
+    const imgElement = root.querySelector('img.avatar');
+    const imageUrl = imgElement?.getAttribute('src');
+    return imageUrl;
+}
+
 async function main() {
-    let userName = "";
+    let userName = "syankit";
     let repos = await get_repositories(userName);
+    console.log(repos);
     let langMap = {};
     for (let i = 0; i < repos.length; i++) {
         let langs = await get_languages(userName,repos[i]);
@@ -72,6 +85,9 @@ async function main() {
         langMap[key] = ((langMap[key] / maxScore) * 100).toFixed(2);
     }
     console.log(langMap);
+
+    let imageUrl = await get_user(userName);
+    console.log(imageUrl);
 }
 
 main();

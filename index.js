@@ -156,6 +156,38 @@ fastify.get("/:userName", async function handler(req, rep) {
   }
 });
 
+
+
+fastify.get("/hot-scrape/:userName", async function handler(req, rep) {
+  try {
+    const userName = req.params.userName;
+    console.log(userName);
+
+    await User.findOneAndDelete({
+        userName: userName,
+        });
+
+    const user = await main(userName);
+    const langs = new Map(Object.entries(user.languages));
+    const newUser = new User({
+      userName: userName,
+      profileImageUrl: user.user.imageUrl,
+      languages: langs,
+      name: user.user.name,
+      bio: user.user.bio,
+    });
+    console.log(newUser);
+    await newUser.save();
+
+
+    const html_buff = generate_html_buffer(newUser);
+    return rep.type("text/html").send(html_buff);
+  } catch (error) {
+    console.log(error);
+    return rep.status(500).send({ error: "An error occurred" });
+  }
+});
+
 fastify.listen({ port: 3000 }, (err) => {
   if (err) {
     fastify.log.error(err);
@@ -169,6 +201,7 @@ fastify.listen({ port: 3000 }, (err) => {
 });
 
 function generate_html_buffer(user) {
+console.log(user);
   let langHTML = `
         <div class="skills" style="margin-bottom: 1rem;">`;
   for (let [key, value] of user.languages) {
@@ -188,7 +221,7 @@ function generate_html_buffer(user) {
   <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
   <div style="display: flex; align-items: center;">
       <div class="img" style="border-radius: 50%; margin-right: 1rem;">
-          <img src="https://avatars.githubusercontent.com/u/107696391?v=4" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
+          <img src="${user.profileImageUrl}" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
       </div>
       <div>
           <div class="name" style="margin-bottom: 1rem;">

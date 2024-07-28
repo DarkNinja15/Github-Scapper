@@ -6,14 +6,7 @@ const { default: mongoose } = require("mongoose");
 const User = require("./models/User");
 dotenv.config();
 
-
-const colors = [
-    "#4CAF50",
-    "#FF9800",
-    "#2196F3",
-    "#F44336",
-    "#9C27B0",
-];
+const colors = ["#4CAF50", "#FF9800", "#2196F3", "#F44336", "#9C27B0"];
 
 async function get_repositories(userName) {
   let repos = [];
@@ -44,7 +37,23 @@ async function get_user_profile(userName) {
   const root = parse(resp.data);
   const imgElement = root.querySelector("img.avatar");
   const imageUrl = imgElement?.getAttribute("src");
-  return imageUrl;
+  const title = root.querySelector("title").innerText;
+
+  let username,name;
+  const match = title.match(/^(.+?) \((.+?)\)/);
+  if (match) {
+    username = match[1];
+    name = match[2];
+
+    console.log("Username:", username);
+    console.log("Name:", name);
+  } else {
+    console.log("Could not parse title format.");
+  }
+
+  const metaDescription = root.querySelector('meta[name="description"]');
+  const bio = metaDescription ? metaDescription.getAttribute('content') : null;
+  return {name,username,imageUrl,bio};
 }
 
 async function get_languages(userName, repo) {
@@ -67,12 +76,10 @@ async function get_languages(userName, repo) {
       ?.text.trim();
     if (name && percentage) {
       const score = {
-        language: name,
+        language: name.replace(".", ""),
         score: percentage.replace("%", ""),
       };
-      if(name !== "Visual Basic .NET"){
-        langs.push(score);
-      }
+      langs.push(score);
     }
   });
 
@@ -100,14 +107,21 @@ async function main(userName) {
   for (let key in langMap) {
     langMap[key] = ((langMap[key] / maxScore) * 100).toFixed(2);
   }
+
+  langMap = Object.fromEntries(
+    Object.entries(langMap).sort(([, a], [, b]) => b - a)
+  );
+
+  langMap = Object.fromEntries(Object.entries(langMap).slice(0, 7));
+
   console.log(langMap);
 
-  let imageUrl = await get_user_profile(userName);
-  console.log(imageUrl);
+  let user = await get_user_profile(userName);
+  console.log(user);
 
   return {
     languages: langMap,
-    profile_image: imageUrl,
+    user: user,
   };
 }
 
@@ -117,26 +131,21 @@ fastify.get("/:userName", async function handler(req, rep) {
     console.log(userName);
     const existing_user = await User.findOne({ userName: userName });
     if (existing_user) {
-        console.log("User found in database");
-        let langHTML = 
-        `
-        <div class="skills" style="margin-bottom: 1rem;">
-        
-        `;
-
-        for (let [key, value] of existing_user.languages) {
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            langHTML += `
+      console.log("User found in database");
+      let langHTML = `
+        <div class="skills" style="margin-bottom: 1rem;">`;
+      for (let [key, value] of existing_user.languages) {
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        langHTML += `
             <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
                 <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: ${color};"></span>
                 <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">${key}</span>
                 <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">${value}%</span>
             </div>
             `;
-        }
-        langHTML += `
+      }
+      langHTML += `
         </div>`;
-
 
       const htmlContent = `
       <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
@@ -145,76 +154,32 @@ fastify.get("/:userName", async function handler(req, rep) {
     </div>
     <div class="infos" style="margin-left: 1.5rem;">
         <div class="name" style="margin-bottom: 1rem;">
-            <h2 style="font-size: 1.3rem; color: #E0E0E0;">${userName}</h2>
-            <h4 style="font-size: .8rem; color: #BBBBBB;">@bradsteve</h4>
+            <h2 style="font-size: 1.3rem; color: #E0E0E0;">${existing_user.name}</h2>
+            <h4 style="font-size: .8rem; color: #BBBBBB;">@${userName}</h4>
         </div>
         <p class="text" style="font-size: .9rem; margin-bottom: 1rem; color: #E0E0E0;">
-            I'm a Front End Developer, follow me to be the first 
-            who see my new work.
+            ${existing_user.bio}
         </p>
         ${langHTML}
     </div>
 </div>
     `;
-    const buffer = Buffer.from(htmlContent, "utf-8");
-    return rep.type("text/html").send(buffer);
+      const buffer = Buffer.from(htmlContent, "utf-8");
+      return rep.type("text/html").send(buffer);
     }
     console.log("User Not found in database");
     const user = await main(userName);
     const langs = new Map(Object.entries(user.languages));
     const newUser = new User({
       userName: userName,
-      profileImageUrl: user.profile_image,
+      profileImageUrl: user.user.imageUrl,
       languages: langs,
+      name: user.user.name,
+      bio: user.user.bio,
     });
     console.log(newUser);
     await newUser.save();
-    return rep.send(
-      `
-            <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
-    <div class="img" style="border-radius: 50%;">
-        <img src="${user.profile_image}" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
-    </div>
-    <div class="infos" style="margin-left: 1.5rem;">
-        <div class="name" style="margin-bottom: 1rem;">
-            <h2 style="font-size: 1.3rem; color: #E0E0E0;">${userName}</h2>
-            <h4 style="font-size: .8rem; color: #BBBBBB;">@bradsteve</h4>
-        </div>
-        <p class="text" style="font-size: .9rem; margin-bottom: 1rem; color: #E0E0E0;">
-            I'm a Front End Developer, follow me to be the first 
-            who see my new work.
-        </p>
-        <div class="skills" style="margin-bottom: 1rem;">
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: #4CAF50;"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">HTML</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">90%</span>
-            </div>
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: #2196F3;"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">CSS</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">85%</span>
-            </div>
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: #FF9800;"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">JavaScript</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">80%</span>
-            </div>
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: #F44336;"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">React</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">75%</span>
-            </div>
-            <div class="skill" style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-                <span class="dot" style="width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 0.5rem; background-color: #9C27B0;"></span>
-                <span class="skill-name" style="flex: 1; font-size: 0.9rem; color: #E0E0E0;">Node.js</span>
-                <span class="percentage" style="font-size: 0.9rem; color: #E0E0E0;">70%</span>
-            </div>
-        </div>
-    </div>
-</div>
-            `
-    );
+    return rep.send();
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });

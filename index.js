@@ -25,6 +25,14 @@ async function get_repositories(userName) {
     return repos;
 }
 
+async function get_user_profile(userName) {
+    let resp =  await axios.get(`https://github.com/${userName}`);
+    const root = parse(resp.data);
+    const imgElement = root.querySelector('img.avatar');
+    const imageUrl = imgElement?.getAttribute('src');
+    return imageUrl;
+}
+
 async function get_languages(userName,repo) {
     let langs=[];
     let resp = await axios.get(`https://github.com/${userName}/${repo}`);
@@ -72,6 +80,10 @@ async function main() {
         langMap[key] = ((langMap[key] / maxScore) * 100).toFixed(2);
     }
     console.log(langMap);
+
+
+    let imageUrl = await get_user_profile(userName);
+    console.log(imageUrl);
 }
 
 main();

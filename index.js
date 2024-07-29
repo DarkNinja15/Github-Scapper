@@ -4,6 +4,8 @@ const { default: parse } = require("node-html-parser");
 const dotenv = require("dotenv");
 const { default: mongoose } = require("mongoose");
 const User = require("./models/User");
+const puppeteer = require('puppeteer');
+
 dotenv.config();
 
 const colors = ["#4CAF50", "#FF9800", "#2196F3", "#F44336", "#9C27B0"];
@@ -133,8 +135,14 @@ fastify.get("/:userName", async function handler(req, rep) {
     if (existing_user) {
       console.log("User found in database");
 
-      const html_buff = generate_html_buffer(existing_user);
-      return rep.type("text/html").send(html_buff);
+      const html = generate_html(existing_user);
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+      await page.setContent(html);
+      const imageBuffer = await page.screenshot({ type: 'jpeg' });
+      await browser.close();
+  
+      return rep.type('image/jpeg').send(imageBuffer);
     }
     console.log("User Not found in database");
     const user = await main(userName);
@@ -148,8 +156,14 @@ fastify.get("/:userName", async function handler(req, rep) {
     });
     console.log(newUser);
     await newUser.save();
-    const html_buff = generate_html_buffer(newUser);
-    return rep.type("text/html").send(html_buff);
+    const html = generate_html(newUser);
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+      await page.setContent(html);
+      const imageBuffer = await page.screenshot({ type: 'jpeg' });
+      await browser.close();
+  
+      return rep.type('image/jpeg').send(imageBuffer);
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });
@@ -180,8 +194,14 @@ fastify.get("/hot-scrape/:userName", async function handler(req, rep) {
     await newUser.save();
 
 
-    const html_buff = generate_html_buffer(newUser);
-    return rep.type("text/html").send(html_buff);
+    const html = generate_html(newUser);
+      const browser = await puppeteer.launch();
+      const page = await browser.newPage();
+      await page.setContent(html);
+      const imageBuffer = await page.screenshot({ type: 'jpeg' });
+      await browser.close();
+  
+      return rep.type('image/jpeg').send(imageBuffer);
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });
@@ -200,7 +220,7 @@ fastify.listen({ port: 3000 }, (err) => {
     .catch((err) => console.error("Could not connect to MongoDB..."));
 });
 
-function generate_html_buffer(user) {
+function generate_html(user) {
 console.log(user);
   let langHTML = `
         <div class="skills" style="margin-bottom: 1rem;">`;
@@ -242,6 +262,5 @@ console.log(user);
 </div>
     `;
 
-  const buffer = Buffer.from(htmlContent, "utf-8");
-  return buffer;
+  return htmlContent;
 }

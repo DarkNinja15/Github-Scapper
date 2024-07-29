@@ -135,17 +135,9 @@ fastify.get("/:userName", async function handler(req, rep) {
     if (existing_user) {
       console.log("User found in database");
 
-      const html = generate_html(existing_user);
-      const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/chromium-browser',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-      const page = await browser.newPage();
-      await page.setContent(html);
-      const imageBuffer = await page.screenshot({ type: 'jpeg' });
-      await browser.close();
+      const imageBuffer = await get_image_buffer(existing_user);
   
-      return rep.type('image/jpeg').send(imageBuffer);
+      return rep.type('image/png').send(imageBuffer);
     }
     console.log("User Not found in database");
     const user = await main(userName);
@@ -159,17 +151,8 @@ fastify.get("/:userName", async function handler(req, rep) {
     });
     console.log(newUser);
     await newUser.save();
-    const html = generate_html(newUser);
-    const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium-browser',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-      const page = await browser.newPage();
-      await page.setContent(html);
-      const imageBuffer = await page.screenshot({ type: 'jpeg' });
-      await browser.close();
-  
-      return rep.type('image/jpeg').send(imageBuffer);
+    const imageBuffer = await get_image_buffer(newUser);
+    return rep.type('image/png').send(imageBuffer);
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });
@@ -200,17 +183,8 @@ fastify.get("/hot-scrape/:userName", async function handler(req, rep) {
     await newUser.save();
 
 
-    const html = generate_html(newUser);
-    const browser = await puppeteer.launch({
-      executablePath: '/usr/bin/chromium-browser',
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-      const page = await browser.newPage();
-      await page.setContent(html);
-      const imageBuffer = await page.screenshot({ type: 'jpeg' });
-      await browser.close();
-  
-      return rep.type('image/jpeg').send(imageBuffer);
+    const imageBuffer = await get_image_buffer(newUser);
+    return rep.type('image/png').send(imageBuffer);
   } catch (error) {
     console.log(error);
     return rep.status(500).send({ error: "An error occurred" });
@@ -247,7 +221,7 @@ console.log(user);
         </div>`;
 
   const htmlContent = `
-  <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #1E1E1E; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
+  <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #000000; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
   <div style="display: flex; align-items: center;">
       <div class="img" style="border-radius: 50%; margin-right: 1rem;">
           <img src="${user.profileImageUrl}" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
@@ -272,4 +246,30 @@ console.log(user);
     `;
 
   return htmlContent;
+}
+
+
+async function get_image_buffer(user){
+  const html = generate_html(user);
+  const browser = await puppeteer.launch({
+    // executablePath: '/usr/bin/chromium-browser',
+    headless: true,
+    defaultViewport:{
+      width: 800,
+      height: 600,
+      deviceScaleFactor: 2,
+    },
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+  const page = await browser.newPage();
+      await page.setContent(html);
+      await page.evaluate(() => {
+        document.body.style.background = 'transparent';
+      });
+      const imageBuffer = await page.screenshot({
+        type: 'png',
+        omitBackground: true,
+      });
+      await browser.close();
+  return imageBuffer;
 }

@@ -221,7 +221,8 @@ console.log(user);
         </div>`;
 
   const htmlContent = `
-  <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #000000; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5); margin: 1rem; position: relative; transform-style: preserve-3d; overflow: hidden;">
+  <div id="scrapper" style="height: 440; width: 515;">
+  <div class="card" style="padding: 2.5rem 2rem; border-radius: 10px; background-color: #000000; max-width: 500px; box-shadow: 0 0 30px rgba(0, 0, 0, .5);margin:0; box-sizing: border-box; position: relative; transform-style: preserve-3d; overflow: hidden;">
   <div style="display: flex; align-items: center;">
       <div class="img" style="border-radius: 50%; margin-right: 1rem;">
           <img src="${user.profileImageUrl}" style="width: 8rem; min-width: 80px; box-shadow: 0 0 0 5px #333; border-radius: 50%;">
@@ -243,6 +244,7 @@ console.log(user);
       </div>
   </div>
 </div>
+</div>
     `;
 
   return htmlContent;
@@ -251,20 +253,23 @@ console.log(user);
 
 async function get_image_buffer(user){
   const html = generate_html(user);
+  console.log(html);
   const browser = await puppeteer.launch({
-    // executablePath: '/usr/bin/chromium-browser',
+    executablePath: '/usr/bin/chromium-browser',
     headless: true,
-    defaultViewport:{
-      width: 800,
-      height: 600,
-      deviceScaleFactor: 2,
-    },
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
   const page = await browser.newPage();
       await page.setContent(html);
-      await page.evaluate(() => {
-        document.body.style.background = 'transparent';
+      const dimensions = await page.evaluate(() => {
+        const body = document.getElementById('scrapper');
+    
+        return { width: body.offsetWidth, height: body.offsetHeight };
+      });
+      console.log(dimensions);
+      await page.setViewport({
+        width: dimensions.width,
+        height: dimensions.height
       });
       const imageBuffer = await page.screenshot({
         type: 'png',

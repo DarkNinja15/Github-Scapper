@@ -136,7 +136,10 @@ fastify.get("/:userName", async function handler(req, rep) {
       console.log("User found in database");
 
       const html = generate_html(existing_user);
-      const browser = await puppeteer.launch();
+      const browser = await puppeteer.launch({
+        executablePath: '/usr/bin/chromium-browser',
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
       const page = await browser.newPage();
       await page.setContent(html);
       const imageBuffer = await page.screenshot({ type: 'jpeg' });
@@ -157,7 +160,10 @@ fastify.get("/:userName", async function handler(req, rep) {
     console.log(newUser);
     await newUser.save();
     const html = generate_html(newUser);
-      const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      executablePath: '/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
       const page = await browser.newPage();
       await page.setContent(html);
       const imageBuffer = await page.screenshot({ type: 'jpeg' });
@@ -195,7 +201,10 @@ fastify.get("/hot-scrape/:userName", async function handler(req, rep) {
 
 
     const html = generate_html(newUser);
-      const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      executablePath: '/usr/bin/chromium-browser',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
       const page = await browser.newPage();
       await page.setContent(html);
       const imageBuffer = await page.screenshot({ type: 'jpeg' });
